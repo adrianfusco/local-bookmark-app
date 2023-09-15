@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BookmarkPro</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: #3498db;
+            color: white;
+            text-align: center;
+            padding: 1rem 0;
+        }
+
+        main {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 1rem;
+            background-color: #fff;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+        }
+
+        h1 {
+            font-size: 2rem;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        form {
+            margin-top: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            margin-bottom: 1rem;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            overflow: auto;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 0;
+            right: 0;
+            padding: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>BookmarkPro</h1>
+    </header>
+    <main>
+        <section id="bookmark-form">
+            <h2>Add a Bookmark</h2>
+            <form>
+                <label for="name">Name:</label>
+                <input type="text" id="name" name="name" required>
+                <br>
+                <label for="url">URL:</label>
+                <input type="text" id="url" name="url" required>
+                <br>
+                <label for="description">Description:</label>
+                <textarea id="description" name="description"></textarea>
+                <br>
+                <button type="submit">Add Bookmark</button>
+            </form>
+        </section>
+        <section id="bookmark-list">
+            <h2>Your Bookmarks</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>URL</th>
+                        <th>Description</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="bookmarks-table">
+                    <!-- Bookmark items with Edit and Delete buttons will be dynamically generated here -->
+                </tbody>
+            </table>
+        </section>
+    </main>
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <span id="edit-modal-close" class="modal-close">&times;</span>
+            <h2>Edit Bookmark</h2>
+            <form id="edit-form">
+                <label for="edit-url">URL:</label>
+                <input type="text" id="edit-url" name="edit-url" required>
+                <br>
+                <label for="edit-name">Name:</label>
+                <input type="text" id="edit-name" name="edit-name" required>
+                <br>
+                <label for="edit-description">Description:</label>
+                <textarea id="edit-description" name="edit-description"></textarea>
+                <br>
+                <button type="submit">Save</button>
+            </form>
+        </div>
+    </div>
+    <script>
+        const form = document.querySelector('form');
+        const bookmarksTable = document.getElementById('bookmarks-table');
+        let editingBookmarkId = null; // Track the ID of the bookmark being edited
+
+        async function fetchBookmarks() {
+            const response = await fetch('/api/bookmarks');
+            const data = await response.json();
+
+            bookmarksTable.innerHTML = '';
+
+            data.forEach((bookmark) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${bookmark.name}</strong></td>
+                    <td><a href="${bookmark.url}" target="_blank">${bookmark.url}</a></td>
+                    <td>${bookmark.description || ''}</td>
+                    <td>
+                        <button class="edit-btn" data-id="${bookmark.id}">Edit</button>
+                        <button class="delete-btn" data-id="${bookmark.id}">Delete</button>
+                    </td>
+                `;
+
+                bookmarksTable.appendChild(row);
+            });
+
+            // Add click event listeners for Edit and Delete buttons
+            document.querySelectorAll('.edit-btn').forEach((editBtn) => {
+                editBtn.addEventListener('click', () => {
+                    const bookmarkId = editBtn.getAttribute('data-id');
+                    editBookmark(bookmarkId);
+                });
+            });
+
+            document.querySelectorAll('.delete-btn').forEach((deleteBtn) => {
+                deleteBtn.addEventListener('click', () => {
+                    const bookmarkId = deleteBtn.getAttribute('data-id');
+                    deleteBookmark(bookmarkId);
+                });
+            });
+        }
+
+        function editBookmark(bookmarkId) {
+            // Find the bookmark in the table
+            const row = document.querySelector(`[data-id="${bookmarkId}"]`).parentElement.parentElement;
+            const nameCell = row.querySelector('td:first-child');
+            const urlCell = row.querySelector('td:nth-child(2)');
+            const descriptionCell = row.querySelector('td:nth-child(3)');
+
+            // Populate the editing form with the current values
+            document.getElementById('edit-url').value = urlCell.querySelector('a').getAttribute('href');
+            document.getElementById('edit-name').value = nameCell.textContent.trim();
+            document.getElementById('edit-description').value = descriptionCell.textContent.trim();
+
+            // Show the editing modal
+            editingBookmarkId = bookmarkId;
+            document.getElementById('edit-modal').style.display = 'block';
+        }
+
+        function deleteBookmark(bookmarkId) {
+            // Implement deleting functionality here
+            fetch(`/api/bookmarks/${bookmarkId}`, {
+                method: 'DELETE',
+            })
+                .then((response) => {
+                    if (response.ok) {
+                        fetchBookmarks();
+                    }
+                });
+        }
+
+        // Handle editing form submission
+        document.getElementById('edit-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const updatedUrl = document.getElementById('edit-url').value;
+            const updatedName = document.getElementById('edit-name').value;
+            const updatedDescription = document.getElementById('edit-description').value;
+
+            // Send an API request to update the bookmark
+            fetch(`/api/bookmarks/${editingBookmarkId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url: updatedUrl, name: updatedName, description: updatedDescription }),
+            })
+                .then((response) => {
+                    if (response.ok) {
+                        // Close the editing modal and refresh the bookmarks list
+                        document.getElementById('edit-modal').style.display = 'none';
+                        fetchBookmarks();
+                    }
+                });
+        });
+
+        // Close the editing modal when clicking the close button
+        document.getElementById('edit-modal-close').addEventListener('click', () => {
+            document.getElementById('edit-modal').style.display = 'none';
+        });
+
+        // Initial fetch of bookmarks when the page loads
+        fetchBookmarks();
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const url = document.getElementById('url').value;
+            const name = document.getElementById('name').value;
+            const description = document.getElementById('description').value;
+
+            // Send an API request to add the bookmark
+            const response = await fetch('/api/bookmarks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url, name, description }),
+            });
+
+            if (response.ok) {
+                // Clear the form fields and refresh the bookmarks list
+                document.getElementById('url').value = '';
+                document.getElementById('name').value = '';
+                document.getElementById('description').value = '';
+                fetchBookmarks();
+            }
+        });
+    </script>
+
+</body>
+
+</html>
