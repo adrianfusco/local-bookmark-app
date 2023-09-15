@@ -33,3 +33,5 @@ npm start
 
 This will start the bookmark app server on port 3000. You can access the application by opening your web browser and navigating to http://localhost:3000/.
 
+![App example](app.png)
+![App edit mode example](app_edit.png)
